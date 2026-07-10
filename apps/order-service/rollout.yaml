@@ -32,7 +32,7 @@ spec:
       containers:
         - name: order-service
           # ⬇ CI pipeline updates this line automatically on every push to main
-          image: ghcr.io/pulkitt990/order-service:latest
+          image: ghcr.io/pulkitt990/order-service:25d9c3c
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
