@@ -9,3 +9,4 @@ resources:
   - rollout.yaml
   - analysis-template.yaml
   - servicemonitor.yaml
+  - dashboard.yaml

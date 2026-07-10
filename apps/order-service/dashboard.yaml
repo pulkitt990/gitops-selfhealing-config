@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  order-service-dashboard.json: |-
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "title": "Success Rate (%) by Version",
+          "type": "timeseries",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "targets": [
+            {
+              "expr": "(sum(rate(http_requests_total{status_code=~\"2..\", namespace=\"order-service\"}[1m])) by (version) / sum(rate(http_requests_total{namespace=\"order-service\"}[1m])) by (version)) * 100",
+              "legendFormat": "{{version}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "smooth"
+              },
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            }
+          }
+        },
+        {
+          "title": "Request Volume (RPS) by Version",
+          "type": "timeseries",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{namespace=\"order-service\"}[1m])) by (version)",
+              "legendFormat": "{{version}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line"
+              },
+              "unit": "rps"
+            }
+          }
+        },
+        {
+          "title": "P99 Latency (Seconds) by Version",
+          "type": "timeseries",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 8
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{namespace=\"order-service\"}[1m])) by (le, version))",
+              "legendFormat": "P99 - {{version}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line"
+              },
+              "unit": "s"
+            }
+          }
+        },
+        {
+          "title": "Active Requests by Version",
+          "type": "timeseries",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 8
+          },
+          "targets": [
+            {
+              "expr": "sum(http_active_requests{namespace=\"order-service\"}) by (version)",
+              "legendFormat": "{{version}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line"
+              },
+              "unit": "short"
+            }
+          }
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 36,
+      "style": "dark",
+      "tags": ["gitops", "canary"],
+      "time": {
+        "from": "now-15m",
+        "to": "now"
+      },
+      "timepicker": {
+        "refresh_intervals": [
+          "5s",
+          "10s",
+          "30s",
+          "1m"
+        ]
+      },
+      "timezone": "",
+      "title": "Order Service — Canary Deployment Monitor",
+      "weekStart": ""
+    }
