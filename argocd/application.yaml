@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ArgoCD Application — order-service
+#
+# This tells ArgoCD:
+#   - WHERE to find the manifests (gitops-selfhealing-config repo)
+#   - WHERE to deploy them (local cluster, order-service namespace)
+#   - HOW to sync (automated, self-healing, pruning enabled)
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: order-service
+  namespace: argocd
+  # Finalizer ensures ArgoCD cleans up resources when Application is deleted
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # ⬇ Your GitOps config repo — ArgoCD watches this for changes
+    repoURL: https://github.com/pulkitt990/gitops-selfhealing-config.git
+    targetRevision: main
+    path: apps/order-service  # folder inside the repo
+
+  destination:
+    # 'kubernetes.default.svc' = the cluster ArgoCD itself runs in
+    server: https://kubernetes.default.svc
+    namespace: order-service
+
+  syncPolicy:
+    automated:
+      # Automatically sync when Git state changes
+      selfHeal: true     # re-sync if someone manually changes cluster state
+      prune: true        # delete resources removed from Git
+
+    syncOptions:
+      - CreateNamespace=true   # create namespace if it doesn't exist
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true         # delete old resources after new ones are healthy
+
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

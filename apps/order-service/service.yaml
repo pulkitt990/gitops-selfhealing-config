@@ -1,0 +1,79 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Services — Order Service
+#
+# Three services are needed for Argo Rollouts canary:
+#
+#  1. order-service-stable  → always routes to the stable (old) version
+#  2. order-service-canary  → always routes to the canary (new) version
+#  3. order-service         → public-facing service (controlled by Rollout)
+#
+# Argo Rollouts patches stable/canary selectors automatically during rollout.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Public-facing service (external traffic hits this)
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: order-service
+  labels:
+    app: order-service
+  annotations:
+    # Prometheus scrapes metrics from this service
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: NodePort
+  nodePort: 30100
+  selector:
+    app: order-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+
+---
+# Stable service — always points to the old/stable version pods
+# Argo Rollouts manages the selector on this automatically
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service-stable
+  namespace: order-service
+  labels:
+    app: order-service
+    role: stable
+spec:
+  selector:
+    app: order-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+
+---
+# Canary service — always points to the new/canary version pods
+# Argo Rollouts manages the selector on this automatically
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service-canary
+  namespace: order-service
+  labels:
+    app: order-service
+    role: canary
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: order-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP

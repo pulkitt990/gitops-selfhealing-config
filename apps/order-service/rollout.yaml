@@ -1,0 +1,104 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Argo Rollout — Order Service
+#
+# This replaces a standard Kubernetes Deployment.
+# The Argo Rollouts controller manages canary traffic shifting and analysis.
+#
+# Canary strategy:
+#   10% → pause + analysis → 25% → pause + analysis → 50% → 100% (full promote)
+#
+# If any AnalysisRun FAILS → rollout aborts → all traffic reverts to stable
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: order-service
+  namespace: order-service
+  labels:
+    app: order-service
+spec:
+  replicas: 4
+  revisionHistoryLimit: 3
+
+  selector:
+    matchLabels:
+      app: order-service
+
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          # ⬇ CI pipeline updates this line automatically on every push to main
+          image: ghcr.io/pulkitt990/order-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: APP_VERSION
+              value: "1.0.0"
+            - name: FAILURE_RATE
+              value: "0.0"       # Change to "0.8" for broken version demo
+            - name: LATENCY_MS
+              value: "0"         # Change to "2000" for slow version demo
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          # Kubernetes probes using our /health endpoint
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+
+  strategy:
+    canary:
+      # The canary service gets canary traffic; stable service gets stable traffic
+      canaryService: order-service-canary
+      stableService: order-service-stable
+
+      steps:
+        # Step 1: Send 10% of traffic to new version
+        - setWeight: 10
+        # Run analysis for 3 minutes before proceeding
+        - analysis:
+            templates:
+              - templateName: order-service-success-rate
+            args:
+              - name: service-name
+                value: order-service-canary
+        # Step 2: Increase to 25%
+        - setWeight: 25
+        - analysis:
+            templates:
+              - templateName: order-service-success-rate
+            args:
+              - name: service-name
+                value: order-service-canary
+        # Step 3: Increase to 50%
+        - setWeight: 50
+        - analysis:
+            templates:
+              - templateName: order-service-success-rate
+            args:
+              - name: service-name
+                value: order-service-canary
+        # Step 4: Full promotion (100%) — happens automatically if all analyses pass
+        - setWeight: 100
