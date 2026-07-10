@@ -29,12 +29,14 @@ spec:
         prometheus:
           address: http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090
           query: |
-            sum(
-              rate(http_requests_total{status_code=~"2..",job="order-service"}[2m])
-            ) /
-            sum(
-              rate(http_requests_total{job="order-service"}[2m])
-            )
+            (
+              sum(
+                rate(http_requests_total{status_code=~"2..",namespace="order-service"}[2m])
+              ) /
+              sum(
+                rate(http_requests_total{namespace="order-service"}[2m])
+              )
+            ) or vector(1)
 
     # ── Metric 2: P99 Latency ────────────────────────────────────────────────
     # Passes if: 99th percentile latency < 2 seconds
@@ -47,9 +49,11 @@ spec:
         prometheus:
           address: http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090
           query: |
-            histogram_quantile(
-              0.99,
-              sum(
-                rate(http_request_duration_seconds_bucket{job="order-service"}[2m])
-              ) by (le)
-            )
+            (
+              histogram_quantile(
+                0.99,
+                sum(
+                  rate(http_request_duration_seconds_bucket{namespace="order-service"}[2m])
+                ) by (le)
+              )
+            ) or vector(0)
