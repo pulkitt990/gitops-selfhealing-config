@@ -40,9 +40,9 @@ spec:
               protocol: TCP
           env:
             - name: APP_VERSION
-              value: "1.0.0"         # ← broken version
+              value: "1.1.0-bad"         # ← broken version (demo)
             - name: FAILURE_RATE
-              value: "0.0"
+              value: "0.8"               # ← 80% requests → HTTP 500
             - name: LATENCY_MS
               value: "0"
           resources:
