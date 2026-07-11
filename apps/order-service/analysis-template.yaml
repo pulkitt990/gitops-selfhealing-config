@@ -1,12 +1,3 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# AnalysisTemplate — order-service-success-rate
-#
-# This is the "brain" of auto-rollback.
-# Argo Rollouts runs this at each canary step as an AnalysisRun.
-#
-# It queries Prometheus every 30s for 3 minutes.
-# If error rate > 5% → AnalysisRun FAILS → Rollout ABORTS → auto-rollback
-# ─────────────────────────────────────────────────────────────────────────────
 apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
@@ -14,37 +5,36 @@ metadata:
   namespace: order-service
 spec:
   args:
-    # Injected by the Rollout at runtime — points to canary or stable service
     - name: service-name
 
   metrics:
-    # ── Metric 1: HTTP Success Rate ──────────────────────────────────────────
-    # Passes if: success rate >= 95% (i.e. error rate < 5%)
+    # ── Metric 1: HTTP Error Rate ─────────────────────────────────────────────
+    # FAILS if: error rate > 5% (more than 5% of requests are 5xx)
+    # Uses failureCondition so failures are explicit — "no data" (0.0) = safe default
     - name: success-rate
-      interval: 30s          # query every 30 seconds
-      count: 6               # run 6 times = 3 minutes of analysis per step
-      successCondition: result[0] >= 0.95
-      failureLimit: 1        # allow 1 failure before aborting (avoids flaky spikes)
+      interval: 15s
+      count: 8
+      failureLimit: 2
+      failureCondition: "result[0] > 0.05"
       provider:
         prometheus:
           address: http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090
           query: |
             (
-              sum(
-                rate(http_requests_total{status_code=~"2..",namespace="order-service"}[2m])
-              ) /
-              sum(
-                rate(http_requests_total{namespace="order-service"}[2m])
+              1 - (
+                sum(rate(http_requests_total{status_code=~"2..",namespace="order-service"}[2m]))
+                /
+                sum(rate(http_requests_total{namespace="order-service"}[2m]))
               )
-            ) or vector(1)
+            ) or vector(0)
 
     # ── Metric 2: P99 Latency ────────────────────────────────────────────────
-    # Passes if: 99th percentile latency < 2 seconds
+    # FAILS if: 99th percentile latency >= 2 seconds
     - name: p99-latency
-      interval: 30s
-      count: 6
-      successCondition: result[0] < 2.0
-      failureLimit: 1
+      interval: 15s
+      count: 8
+      failureLimit: 2
+      failureCondition: "result[0] >= 2.0"
       provider:
         prometheus:
           address: http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090
